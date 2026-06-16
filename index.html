@@ -1235,33 +1235,36 @@ function save(skipRemote) {
 // Actual write to GitHub (both files in parallel)
 async function _pushToGitHub() {
   if (_saving) {
-    // Retry after current save finishes
     _saveTimer = setTimeout(_pushToGitHub, 600);
     return;
   }
   _saving = true;
   setSyncStatus('saving');
   try {
-    // Fetch SHAs in parallel (use cache when available)
+    // Always fetch fresh SHA if not cached — file may not exist yet (first save)
     const [shaO, shaR] = await Promise.all([
-      _shaCache[GH_FILE_OSPITI]  ? Promise.resolve(_shaCache[GH_FILE_OSPITI])  : _fetchSha(GH_FILE_OSPITI),
-      _shaCache[GH_FILE_ORDINI]  ? Promise.resolve(_shaCache[GH_FILE_ORDINI])  : _fetchSha(GH_FILE_ORDINI),
+      _fetchSha(GH_FILE_OSPITI),
+      _fetchSha(GH_FILE_ORDINI),
     ]);
     const [resO, resR] = await Promise.all([
       _ghWrite(GH_FILE_OSPITI, ospiti,  shaO),
       _ghWrite(GH_FILE_ORDINI, ordini,  shaR),
     ]);
     if (resO.ok && resR.ok) {
-      // Update SHA cache from response
       const [dO, dR] = await Promise.all([resO.json(), resR.json()]);
-      if (dO.content) _shaCache[GH_FILE_OSPITI] = dO.content.sha;
-      if (dR.content) _shaCache[GH_FILE_ORDINI] = dR.content.sha;
+      if (dO.content && dO.content.sha) _shaCache[GH_FILE_OSPITI] = dO.content.sha;
+      if (dR.content && dR.content.sha) _shaCache[GH_FILE_ORDINI] = dR.content.sha;
       setSyncStatus('ok');
       setTimeout(()=>setSyncStatus('idle'), 3000);
     } else {
+      // Log the actual error for debugging
+      const errO = resO.ok ? '' : await resO.text();
+      const errR = resR.ok ? '' : await resR.text();
+      console.error('GitHub write error:', errO || errR);
       throw new Error('write failed');
     }
   } catch(e) {
+    console.error('_pushToGitHub error:', e);
     setSyncStatus('error');
     setTimeout(()=>setSyncStatus('idle'), 5000);
   }
@@ -1269,28 +1272,52 @@ async function _pushToGitHub() {
 }
 
 async function _fetchSha(file) {
+  if (!ghToken || !ghRepo) return null;
   const [owner, repo] = ghRepo.split('/');
   try {
     const r = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${file}`,
       { headers:{ 'Authorization':`token ${ghToken}`, 'Accept':'application/vnd.github.v3+json' } }
     );
+    if (r.status === 404) return null; // file doesn't exist yet — first write
     if (r.ok) { const d = await r.json(); _shaCache[file] = d.sha; return d.sha; }
   } catch(e) {}
   return null;
 }
 
+function _toBase64(str) {
+  // Robust Unicode-safe base64 encoding
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+    (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+}
+
 async function _ghWrite(file, data, sha) {
   const [owner, repo] = ghRepo.split('/');
+  const json = JSON.stringify(data, null, 2);
   const body = {
     message: `Aggiornamento ${file}`,
-    content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))))
+    content: _toBase64(json)
   };
   if (sha) body.sha = sha;
   return fetch(
     `https://api.github.com/repos/${owner}/${repo}/contents/${file}`,
-    { method:'PUT', headers:{ 'Authorization':`token ${ghToken}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' }, body: JSON.stringify(body) }
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${ghToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    }
   );
+}
+
+function _fromBase64(str) {
+  // Robust Unicode-safe base64 decoding
+  return decodeURIComponent(atob(str.replace(/\n/g,'')).split('').map(
+    c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  ).join(''));
 }
 
 // Read from GitHub — used on load and auto-refresh
@@ -1307,20 +1334,21 @@ async function loadFromGitHub(showMsg) {
     if (rO.ok) {
       const dO = await rO.json();
       _shaCache[GH_FILE_OSPITI] = dO.sha;
-      const parsed = JSON.parse(decodeURIComponent(escape(atob(dO.content.replace(/\n/g,'')))));
+      const parsed = JSON.parse(_fromBase64(dO.content));
       if (JSON.stringify(parsed) !== JSON.stringify(ospiti)) { ospiti = parsed; localStorage.setItem('cp_ospiti', JSON.stringify(ospiti)); changed = true; }
     }
     if (rR.ok) {
       const dR = await rR.json();
       _shaCache[GH_FILE_ORDINI] = dR.sha;
-      const parsed = JSON.parse(decodeURIComponent(escape(atob(dR.content.replace(/\n/g,'')))));
+      const parsed = JSON.parse(_fromBase64(dR.content));
       if (JSON.stringify(parsed) !== JSON.stringify(ordini)) { ordini = parsed; localStorage.setItem('cp_ordini', JSON.stringify(ordini)); changed = true; }
     }
     if (changed) render();
     setSyncStatus('ok');
     setTimeout(()=>setSyncStatus('idle'), 2000);
-    if (showMsg && changed) showToast('Dati aggiornati');
+    if (showMsg) showToast(changed ? 'Dati aggiornati' : 'Dati già aggiornati');
   } catch(e) {
+    console.error('loadFromGitHub error:', e);
     setSyncStatus('offline');
   }
 }
@@ -1345,12 +1373,16 @@ function connectGitHub() {
   localStorage.setItem('cp_gh_token', token);
   localStorage.setItem('cp_gh_repo',  repo);
   document.getElementById('gh-status').textContent = 'GitHub connesso!';
+  // Reset SHA cache completely
   delete _shaCache[GH_FILE_OSPITI];
   delete _shaCache[GH_FILE_ORDINI];
-  // Salva config.json nel repo così gli altri dispositivi si configurano da soli
-  _saveConfig();
-  showToast('Connesso!');
-  loadFromGitHub(true);
+  delete _shaCache['config.json'];
+  showToast('Connesso! Primo salvataggio in corso...');
+  // Save config for other devices, then immediately push all data
+  _saveConfig().then(() => {
+    clearTimeout(_saveTimer);
+    _pushToGitHub();
+  });
   startAutoRefresh();
 }
 
