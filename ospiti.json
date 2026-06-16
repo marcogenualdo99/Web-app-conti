@@ -52,5 +52,14 @@
     "piano": "completa",
     "checkout": "2026-06-20",
     "chiuso": false
+  },
+  {
+    "id": 201,
+    "nome": "Lorenzo",
+    "cognome": "Nsndnbd",
+    "alloggio": "Ndndn",
+    "piano": "mezza",
+    "checkout": "2026-06-20",
+    "chiuso": false
   }
 ]
