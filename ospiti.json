@@ -43,5 +43,14 @@
     "piano": "mezza",
     "checkout": "2026-06-20",
     "chiuso": false
+  },
+  {
+    "id": 204,
+    "nome": "Svi",
+    "cognome": "Gg vvv",
+    "alloggio": "Vvvb v",
+    "piano": "completa",
+    "checkout": "2026-06-20",
+    "chiuso": false
   }
 ]
