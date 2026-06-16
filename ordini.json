@@ -88,5 +88,14 @@
     "importo": 4,
     "operatore": "Marco",
     "ts": "2026-06-16T21:00"
+  },
+  {
+    "id": 201,
+    "ospiteId": 204,
+    "punto": "Bar Piscina",
+    "desc": "Hbb",
+    "importo": 5,
+    "operatore": "Marco",
+    "ts": "2026-06-16T21:27"
   }
 ]
