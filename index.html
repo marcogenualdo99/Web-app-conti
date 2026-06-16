@@ -1345,12 +1345,51 @@ function connectGitHub() {
   localStorage.setItem('cp_gh_token', token);
   localStorage.setItem('cp_gh_repo',  repo);
   document.getElementById('gh-status').textContent = 'GitHub connesso!';
-  // Clear SHA cache for fresh start
   delete _shaCache[GH_FILE_OSPITI];
   delete _shaCache[GH_FILE_ORDINI];
+  // Salva config.json nel repo così gli altri dispositivi si configurano da soli
+  _saveConfig();
   showToast('Connesso!');
   loadFromGitHub(true);
   startAutoRefresh();
+}
+
+// Salva token + repo in config.json nel repo (una volta sola quando si configura)
+async function _saveConfig() {
+  try {
+    const sha = await _fetchSha('config.json');
+    await _ghWrite('config.json', { token: ghToken, repo: ghRepo }, sha);
+  } catch(e) {}
+}
+
+// Legge config.json dal repo senza autenticazione (file pubblico)
+// Chiamato al primo avvio se non c'è token in localStorage
+async function _loadConfig() {
+  // Deriva l'owner/repo dall'URL della pagina (es. marcogenualdo99.github.io/CONTI-PENSIONE)
+  const parts = location.hostname.split('.');
+  const owner = parts[0]; // marcogenualdo99
+  const repo  = location.pathname.replace(/\//g,'').split('/')[0] || location.pathname.split('/')[1] || '';
+  if (!owner || !repo) return false;
+  try {
+    setSyncStatus('loading');
+    const r = await fetch(
+      `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`,
+      { cache: 'no-store' }
+    );
+    if (!r.ok) return false;
+    const cfg = await r.json();
+    if (!cfg.token || !cfg.repo) return false;
+    ghToken = cfg.token; ghRepo = cfg.repo;
+    localStorage.setItem('cp_gh_token', ghToken);
+    localStorage.setItem('cp_gh_repo',  ghRepo);
+    // Aggiorna UI impostazioni
+    const ti = document.getElementById('gh-token');
+    const ri = document.getElementById('gh-repo');
+    if (ti) ti.value = ghToken;
+    if (ri) ri.value = ghRepo;
+    document.getElementById('gh-status').textContent = 'GitHub connesso automaticamente';
+    return true;
+  } catch(e) { return false; }
 }
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
@@ -1361,19 +1400,30 @@ function showToast(msg) {
 }
 
 // ── START ─────────────────────────────────────────────────────────────────────
-init();
-if (ghToken && ghRepo) {
-  loadFromGitHub(false);
-  startAutoRefresh();
-} else {
-  setSyncStatus('offline');
+async function start() {
+  init();
+  if (!ghToken || !ghRepo) {
+    // Primo avvio su questo dispositivo: prova a leggere config.json dal repo
+    const loaded = await _loadConfig();
+    if (loaded) {
+      await loadFromGitHub(false);
+      startAutoRefresh();
+    } else {
+      setSyncStatus('offline');
+    }
+  } else {
+    // Token già in localStorage: usa direttamente
+    loadFromGitHub(false);
+    startAutoRefresh();
+  }
 }
-// Refresh when app comes back to foreground
+
+start();
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && ghToken && ghRepo) loadFromGitHub(false);
 });
-// Refresh when PWA is reopened from home screen
-window.addEventListener('pageshow', (e) => {
+window.addEventListener('pageshow', () => {
   if (ghToken && ghRepo) loadFromGitHub(false);
 });
 </script>
