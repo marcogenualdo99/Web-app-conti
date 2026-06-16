@@ -70,5 +70,14 @@
     "importo": 90,
     "operatore": "Marco",
     "ts": "2026-06-16T20:41"
+  },
+  {
+    "id": 202,
+    "ospiteId": 201,
+    "punto": "Bar Piscina",
+    "desc": "Dbsbdb",
+    "importo": 100,
+    "operatore": "Marco",
+    "ts": "2026-06-16T20:42"
   }
 ]
