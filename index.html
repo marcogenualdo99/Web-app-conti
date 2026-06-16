@@ -487,11 +487,19 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
     <div class="card">
       <h3>Collegamento GitHub</h3>
       <p class="subtitle">I dati vengono sincronizzati su GitHub — nessun servizio esterno</p>
+
+      <!-- Banner visibile solo se non connesso -->
+      <div id="no-config-banner" style="display:none;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
+        <p style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:6px">Nessuna configurazione trovata</p>
+        <p style="font-size:12px;color:var(--gray-700);line-height:1.6;margin-bottom:10px">Se hai già configurato l'app su un altro dispositivo, premi il tasto qui sotto per caricare automaticamente le impostazioni da GitHub.</p>
+        <button onclick="caricaConfigManuale()" style="width:100%;height:42px;background:var(--amber);color:white;border:none;border-radius:var(--radius-xl);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Carica configurazione da GitHub</button>
+      </div>
+
       <div class="setup-step"><div class="step-num">1</div><div class="step-text">Vai su <strong>github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)</strong></div></div>
       <div class="setup-step"><div class="step-num">2</div><div class="step-text">Clicca <strong>Generate new token (classic)</strong>, spunta solo <strong>repo</strong> e genera.</div></div>
       <div class="setup-step"><div class="step-num">3</div><div class="step-text">Incolla il token qui sotto — salvato solo sul dispositivo, mai condiviso.</div></div>
       <div class="form-group"><label>GitHub Token</label><input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"></div>
-      <div class="form-group"><label>Repository (es. tuonome/conti-pensione)</label><input type="text" id="gh-repo" placeholder="marcogenualdo99/conti-pensione"></div>
+      <div class="form-group"><label>Repository (es. tuonome/repo)</label><input type="text" id="gh-repo" placeholder="marcogenualdo99/Web-app-conti"></div>
       <p id="gh-status" style="font-size:13px;color:var(--green-ok);font-weight:600;margin-bottom:10px"></p>
       <button class="btn-primary" onclick="connectGitHub()">Connetti GitHub</button>
       <div class="divider"></div>
@@ -499,7 +507,7 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
         <p style="font-size:13px;font-weight:700;color:var(--green-700);margin-bottom:4px">Salvataggio automatico attivo</p>
         <p style="font-size:12px;color:var(--gray-500);line-height:1.6">Ogni modifica viene salvata automaticamente su GitHub. L'app si aggiorna ogni 60 secondi e ogni volta che torni in primo piano.</p>
       </div>
-      <button onclick="syncGitHub()" style="width:100%;height:44px;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:var(--radius-xl);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Forza aggiornamento ora</button>
+      <button onclick="syncGitHub()" style="width:100%;height:44px;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:var(--radius-xl);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-bottom:8px">Forza aggiornamento ora</button>
       <div class="divider"></div>
       <button onclick="testConnessione()" style="width:100%;height:44px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:var(--radius-xl);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Testa connessione</button>
       <div id="debug-panel" style="display:none;margin-top:12px;background:#1e1e2e;border-radius:var(--radius-sm);padding:14px;font-family:monospace;font-size:11px;color:#cdd6f4;line-height:1.7;word-break:break-all;max-height:240px;overflow-y:auto"></div>
@@ -1091,7 +1099,7 @@ function switchTab(id) {
   if (id==='dettaglio-chiuso') document.getElementById('tab-chiusi').classList.add('active');
   if (id==='scadenze') renderScadenze();
   if (id==='chiusi')   renderChiusi();
-  if (id==='setup')    renderOperatoriList();
+  if (id==='setup')    { renderOperatoriList(); _aggiornaSetupUI(); }
 }
 
 function goDettaglio(id) {
@@ -1449,7 +1457,58 @@ async function _loadConfig() {
   } catch(e) { return false; }
 }
 
-// ── DEBUG ─────────────────────────────────────────────────────────────────────
+// Chiamato quando si apre Impostazioni — mostra banner se non connesso
+function _aggiornaSetupUI() {
+  const banner = document.getElementById('no-config-banner');
+  if (!banner) return;
+  banner.style.display = (!ghToken || !ghRepo) ? 'block' : 'none';
+}
+
+// Carica config.json manualmente — per PWA iPhone dove _loadConfig fallisce
+// perché l'URL standalone non contiene il pathname del repo
+async function caricaConfigManuale() {
+  // Lista di repo noti da provare in ordine
+  const candidati = [
+    'marcogenualdo99/Web-app-conti',
+    // aggiungi altri qui se necessario
+  ];
+
+  setSyncStatus('loading');
+  showToast('Ricerca configurazione...');
+
+  for (const repoCandiato of candidati) {
+    const [owner, repo] = repoCandiato.split('/');
+    try {
+      const r = await fetch(
+        `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`,
+        { cache: 'no-store' }
+      );
+      if (!r.ok) continue;
+      const cfg = await r.json();
+      if (!cfg.token || !cfg.repo) continue;
+
+      ghToken = cfg.token;
+      ghRepo  = cfg.repo;
+      localStorage.setItem('cp_gh_token', ghToken);
+      localStorage.setItem('cp_gh_repo',  ghRepo);
+
+      const ti = document.getElementById('gh-token');
+      const ri = document.getElementById('gh-repo');
+      if (ti) ti.value = ghToken;
+      if (ri) ri.value = ghRepo;
+      document.getElementById('gh-status').textContent = 'GitHub connesso automaticamente!';
+      _aggiornaSetupUI();
+      Object.keys(_shaCache).forEach(k => delete _shaCache[k]);
+      await loadFromGitHub(false);
+      startAutoRefresh();
+      showToast('Configurazione caricata!');
+      return;
+    } catch(e) { continue; }
+  }
+
+  setSyncStatus('offline');
+  showToast('Configurazione non trovata — inserisci token manualmente');
+}
 function _dbg(msg, color) {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
