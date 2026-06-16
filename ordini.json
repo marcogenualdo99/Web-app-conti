@@ -79,5 +79,14 @@
     "importo": 100,
     "operatore": "Marco",
     "ts": "2026-06-16T20:43"
+  },
+  {
+    "id": 205,
+    "ospiteId": 204,
+    "punto": "Ristorante",
+    "desc": "Gelato",
+    "importo": 4,
+    "operatore": "Marco",
+    "ts": "2026-06-16T21:00"
   }
 ]
