@@ -1419,24 +1419,27 @@ async function _saveConfig() {
 // Legge config.json dal repo senza autenticazione (file pubblico)
 // Chiamato al primo avvio se non c'è token in localStorage
 async function _loadConfig() {
-  // Deriva l'owner/repo dall'URL della pagina (es. marcogenualdo99.github.io/CONTI-PENSIONE)
-  const parts = location.hostname.split('.');
-  const owner = parts[0]; // marcogenualdo99
-  const repo  = location.pathname.replace(/\//g,'').split('/')[0] || location.pathname.split('/')[1] || '';
-  if (!owner || !repo) return false;
+  // GitHub Pages URL: marcogenualdo99.github.io/Web-app-conti/
+  // Ricava owner dal hostname e repo dal primo segmento del pathname
+  const hostParts = location.hostname.split('.');
+  const owner = hostParts[0]; // marcogenualdo99
+  // pathname es. "/Web-app-conti/" → split → ["", "Web-app-conti", ""]
+  const pathParts = location.pathname.split('/').filter(p => p.length > 0);
+  const repo = pathParts[0] || ''; // "Web-app-conti"
+
+  if (!owner || !repo || owner === 'localhost' || owner === '127') return false;
+
   try {
     setSyncStatus('loading');
-    const r = await fetch(
-      `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`,
-      { cache: 'no-store' }
-    );
+    const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`;
+    const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) return false;
     const cfg = await r.json();
     if (!cfg.token || !cfg.repo) return false;
-    ghToken = cfg.token; ghRepo = cfg.repo;
+    ghToken = cfg.token;
+    ghRepo  = cfg.repo;
     localStorage.setItem('cp_gh_token', ghToken);
     localStorage.setItem('cp_gh_repo',  ghRepo);
-    // Aggiorna UI impostazioni
     const ti = document.getElementById('gh-token');
     const ri = document.getElementById('gh-repo');
     if (ti) ti.value = ghToken;
