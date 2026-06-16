@@ -43,14 +43,5 @@
     "importo": 2,
     "operatore": "Marco",
     "ts": "2026-06-16T19:04"
-  },
-  {
-    "id": 201,
-    "ospiteId": 201,
-    "punto": "Bar Piscina",
-    "desc": "gelato",
-    "importo": 3,
-    "operatore": "Marco",
-    "ts": "2026-06-16T19:05"
   }
 ]
