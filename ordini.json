@@ -34,5 +34,14 @@
     "importo": 29,
     "operatore": "Sara",
     "ts": "2025-06-18T21:00"
+  },
+  {
+    "id": 202,
+    "ospiteId": 201,
+    "punto": "Bar Piscina",
+    "desc": "mmm",
+    "importo": 23,
+    "operatore": "Marco",
+    "ts": "2026-06-16T20:28"
   }
 ]
