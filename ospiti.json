@@ -34,5 +34,14 @@
     "piano": "mezza",
     "checkout": "2026-06-20",
     "chiuso": false
+  },
+  {
+    "id": 201,
+    "nome": "Valentina",
+    "cognome": "Capannelli",
+    "alloggio": "Blu house 4",
+    "piano": "mezza",
+    "checkout": "2026-06-20",
+    "chiuso": false
   }
 ]
