@@ -25,5 +25,14 @@
     "piano": "mezza",
     "checkout": "2025-06-27",
     "chiuso": false
+  },
+  {
+    "id": 201,
+    "nome": "marco",
+    "cognome": "genualdo",
+    "alloggio": "riviera 3",
+    "piano": "mezza",
+    "checkout": "2026-06-20",
+    "chiuso": false
   }
 ]
