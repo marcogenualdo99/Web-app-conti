@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "nome": "Marco",
+    "cognome": "Rossi",
+    "alloggio": "Bungalow 12",
+    "piano": "mezza",
+    "checkout": "2025-06-20",
+    "chiuso": false
+  },
+  {
+    "id": 2,
+    "nome": "Elena",
+    "cognome": "Bianchi",
+    "alloggio": "Glamping 5",
+    "piano": "completa",
+    "checkout": "2025-06-20",
+    "chiuso": false
+  },
+  {
+    "id": 3,
+    "nome": "Luca",
+    "cognome": "Verdi",
+    "alloggio": "Piazzola 34",
+    "piano": "mezza",
+    "checkout": "2025-06-27",
+    "chiuso": false
+  }
+]
