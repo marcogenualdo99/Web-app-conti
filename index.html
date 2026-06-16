@@ -1244,7 +1244,7 @@ async function _pushToGitHub() {
   _saving = true;
   setSyncStatus('saving');
   try {
-    // Always fetch fresh SHA if not cached — file may not exist yet (first save)
+    // Always fetch fresh SHA — never use cache for writes to avoid conflicts
     const [shaO, shaR] = await Promise.all([
       _fetchSha(GH_FILE_OSPITI),
       _fetchSha(GH_FILE_ORDINI),
@@ -1255,16 +1255,37 @@ async function _pushToGitHub() {
     ]);
     if (resO.ok && resR.ok) {
       const [dO, dR] = await Promise.all([resO.json(), resR.json()]);
+      // Update cache with new SHA from response
       if (dO.content && dO.content.sha) _shaCache[GH_FILE_OSPITI] = dO.content.sha;
       if (dR.content && dR.content.sha) _shaCache[GH_FILE_ORDINI] = dR.content.sha;
       setSyncStatus('ok');
       setTimeout(()=>setSyncStatus('idle'), 3000);
     } else {
-      const errText = !resO.ok ? await resO.text() : await resR.text();
-      let errMsg = 'write failed';
-      try { errMsg = JSON.parse(errText).message || errMsg; } catch(e) {}
-      _dbg(`Errore salvataggio: ${errMsg}`, '#f38ba8');
-      throw new Error(errMsg);
+      // If SHA conflict (409/422), clear cache and retry once
+      if (!resO.ok) {
+        const d = await resO.json();
+        if (d.message && d.message.includes('but expected')) {
+          delete _shaCache[GH_FILE_OSPITI];
+          delete _shaCache[GH_FILE_ORDINI];
+          _saving = false;
+          _saveTimer = setTimeout(_pushToGitHub, 300);
+          return;
+        }
+        _dbg(`Errore salvataggio: ${d.message}`, '#f38ba8');
+        throw new Error(d.message);
+      }
+      if (!resR.ok) {
+        const d = await resR.json();
+        if (d.message && d.message.includes('but expected')) {
+          delete _shaCache[GH_FILE_OSPITI];
+          delete _shaCache[GH_FILE_ORDINI];
+          _saving = false;
+          _saveTimer = setTimeout(_pushToGitHub, 300);
+          return;
+        }
+        _dbg(`Errore salvataggio: ${d.message}`, '#f38ba8');
+        throw new Error(d.message);
+      }
     }
   } catch(e) {
     console.error('_pushToGitHub error:', e);
@@ -1376,10 +1397,8 @@ function connectGitHub() {
   localStorage.setItem('cp_gh_token', token);
   localStorage.setItem('cp_gh_repo',  repo);
   document.getElementById('gh-status').textContent = 'GitHub connesso!';
-  // Reset SHA cache completely
-  delete _shaCache[GH_FILE_OSPITI];
-  delete _shaCache[GH_FILE_ORDINI];
-  delete _shaCache['config.json'];
+  // Reset SHA cache completely on every new connection
+  Object.keys(_shaCache).forEach(k => delete _shaCache[k]);
   showToast('Connesso! Primo salvataggio in corso...');
   // Save config for other devices, then immediately push all data
   _saveConfig().then(() => {
