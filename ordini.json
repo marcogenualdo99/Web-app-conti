@@ -1,23 +1,5 @@
 [
   {
-    "id": 1,
-    "ospiteId": 1,
-    "punto": "Ristorante",
-    "desc": "Cena 2 persone",
-    "importo": 42,
-    "operatore": "Marco",
-    "ts": "2025-06-17T20:15"
-  },
-  {
-    "id": 2,
-    "ospiteId": 1,
-    "punto": "Bar Piscina",
-    "desc": "Cocktail x3",
-    "importo": 18.5,
-    "operatore": "Giulia",
-    "ts": "2025-06-18T17:30"
-  },
-  {
     "id": 3,
     "ospiteId": 2,
     "punto": "Ristorante",
@@ -34,23 +16,5 @@
     "importo": 29,
     "operatore": "Sara",
     "ts": "2025-06-18T21:00"
-  },
-  {
-    "id": 202,
-    "ospiteId": 201,
-    "punto": "Bar Piscina",
-    "desc": "pane",
-    "importo": 2,
-    "operatore": "Marco",
-    "ts": "2026-06-16T19:04"
-  },
-  {
-    "id": 202,
-    "ospiteId": 201,
-    "punto": "Bar Piscina",
-    "desc": "gelato",
-    "importo": 3,
-    "operatore": "Marco",
-    "ts": "2026-06-16T19:06"
   }
 ]
