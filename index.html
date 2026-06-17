@@ -15,6 +15,8 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, updateDoc }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBAnVI0MTNKZ9rIHpATgKyCp88nq0u0vsY",
@@ -27,11 +29,33 @@
 
   const fbApp = initializeApp(firebaseConfig);
   const db    = getFirestore(fbApp);
+  const auth  = getAuth(fbApp);
 
   // Expose to global scope so the main script (non-module) can use it
   window._fb = { db, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, updateDoc };
-  window._fbReady = true;
-  window.dispatchEvent(new Event('firebase-ready'));
+  window._fbReady     = false;
+  window._fbAuthError = false;
+
+  function segnalaPronto() {
+    if (window._fbReady) return; // evita doppio dispatch
+    window._fbReady = true;
+    window.dispatchEvent(new Event('firebase-ready'));
+  }
+
+  // Login anonimo: non crea nessun "account" reale e non raccoglie dati
+  // personali — serve solo a far sì che Firestore veda request.auth != null,
+  // così possiamo chiudere il database alle richieste esterne mantenendo
+  // intatta la gestione di operatori/PIN già fatta dentro l'app.
+  onAuthStateChanged(auth, (user) => { if (user) segnalaPronto(); });
+  signInAnonymously(auth).catch((err) => {
+    console.error('Errore login anonimo Firebase:', err);
+    window._fbAuthError = true;
+    // Non blocchiamo l'app a tempo indefinito: meglio mostrare un errore
+    // che restare su una schermata che non carica nulla.
+    segnalaPronto();
+  });
+  // Rete di sicurezza in caso onAuthStateChanged non scattasse per qualche motivo
+  setTimeout(segnalaPronto, 8000);
 </script>
 <style>
 :root {
@@ -328,6 +352,7 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
         <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.35);flex-shrink:0;transition:background .3s"></span>
         <span id="sync-label">—</span>
       </div>
+      <button class="hbtn ghost" onclick="forceRefresh(false)" title="Aggiorna ora">&#8635;</button>
       <button class="hbtn ghost" onclick="doLogout()" title="Logout">Esci</button>
     </div>
   </div>
@@ -419,6 +444,7 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
         <div class="back-title" id="det-nome">—</div>
         <div class="back-sub"   id="det-sub">—</div>
       </div>
+      <button class="back-btn" id="btn-edit-ospite" onclick="goModificaOspite()" title="Modifica anagrafica">&#9998;</button>
       <div style="text-align:right">
         <div style="font-size:24px;font-weight:800;color:var(--green-ok)" id="det-totale">0,00 €</div>
         <div style="font-size:10px;color:var(--gray-500)">totale conto</div>
@@ -462,11 +488,41 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
           <select id="no-piano">
             <option value="mezza">Mezza pensione</option>
             <option value="completa">Pensione completa</option>
+            <option value="nessuno">Nessuno (conto libero)</option>
           </select>
         </div>
         <div class="form-group"><label>Data checkout</label><input type="date" id="no-checkout"></div>
       </div>
       <button class="btn-primary" onclick="addOspite()">Registra ospite</button>
+    </div>
+  </div>
+
+  <!-- MODIFICA OSPITE -->
+  <div id="sec-modifica-ospite" class="section">
+    <div class="back-header">
+      <button class="back-btn" onclick="switchTab('dettaglio')">&#8592;</button>
+      <div><div class="back-title">Modifica anagrafica</div></div>
+    </div>
+    <div class="card">
+      <h3>Dati ospite</h3>
+      <p class="subtitle">Correggi i dati del conto, se necessario</p>
+      <div class="form-row">
+        <div class="form-group"><label>Nome</label><input type="text" id="mo-nome"></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="mo-cognome"></div>
+      </div>
+      <div class="form-group"><label>Alloggio</label><input type="text" id="mo-alloggio"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Piano pasti</label>
+          <select id="mo-piano">
+            <option value="mezza">Mezza pensione</option>
+            <option value="completa">Pensione completa</option>
+            <option value="nessuno">Nessuno (conto libero)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data checkout</label><input type="date" id="mo-checkout"></div>
+      </div>
+      <button class="btn-primary" onclick="salvaModificaOspite()">Salva modifiche</button>
     </div>
   </div>
 
@@ -509,7 +565,7 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
     </div>
     <div class="card">
       <h3>Database</h3>
-      <p class="subtitle">I dati sono sincronizzati in tempo reale su Firebase — nessuna configurazione richiesta su nessun dispositivo</p>
+      <p class="subtitle">I dati sono sincronizzati in tempo reale su Firebase. L'app si autentica in modo anonimo e automatico — nessuna configurazione richiesta su nessun dispositivo</p>
       <div style="background:var(--green-50);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
         <span id="fb-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--gray-300);flex-shrink:0"></span>
         <div>
@@ -579,6 +635,16 @@ function oggi()       { return new Date().toISOString().split('T')[0]; }
 function giorniA(d)   { return Math.ceil((new Date(d) - new Date(oggi())) / 86400000); }
 function initials(o)  { return (o.cognome[0]||'') + (o.nome[0]||''); }
 function totOspite(id){ return ordini.filter(o=>o.ospiteId===id).reduce((s,o)=>s+o.importo,0); }
+function pianoLabel(piano) {
+  if (piano === 'completa') return 'Pensione completa';
+  if (piano === 'nessuno')  return 'Conto libero';
+  return 'Mezza pensione';
+}
+function pianoBadgeHtml(piano) {
+  if (piano === 'completa') return `<span class="badge blue">Pensione completa</span>`;
+  if (piano === 'nessuno')  return `<span class="badge amber">Conto libero</span>`;
+  return `<span class="badge gray">Mezza pensione</span>`;
+}
 
 // ── FIREBASE — REALTIME SYNC ─────────────────────────────────────────────────
 // Aspetta che il modulo Firebase (caricato in <head>) sia pronto
@@ -662,6 +728,47 @@ async function startRealtimeSync() {
     setSyncStatus('error');
   }
 }
+
+// Refresh manuale/di sicurezza: rilegge tutto da Firestore con una query diretta.
+// Serve perché su mobile (specialmente iOS/Safari "Aggiungi a Home") il sistema
+// può sospendere la connessione realtime quando l'app va in background o lo
+// schermo si blocca, e talvolta non si riconnette subito da sola al ritorno.
+async function forceRefresh(silent) {
+  await waitForFirebase();
+  const { db, collection, getDocs } = window._fb;
+  try {
+    const [snapO, snapOr, snapOp] = await Promise.all([
+      getDocs(collection(db, 'ospiti')),
+      getDocs(collection(db, 'ordini')),
+      getDocs(collection(db, 'operatori'))
+    ]);
+    ospiti = snapO.docs.map(d => ({ id: d.id, ...d.data() }));
+    ordini = snapOr.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!snapOp.empty) {
+      operatori = snapOp.docs.map(d => d.data().nome).filter(Boolean);
+      if (!operatori.length) operatori = ['Marco','Giulia','Luca','Sara'];
+    }
+    render();
+    if (document.getElementById('sec-dettaglio').classList.contains('active')) renderDettaglio();
+    if (document.getElementById('sec-setup').classList.contains('active'))     renderOperatoriList();
+    fbConnected = true;
+    setSyncStatus('live');
+    if (!silent) showToast('Dati aggiornati');
+  } catch(e) {
+    console.error('Errore refresh manuale:', e);
+    if (!silent) showToast('Errore aggiornamento — controlla la connessione');
+  }
+}
+
+// Quando l'app torna in primo piano, torna online, o la finestra riprende il
+// focus, facciamo un refresh "silenzioso" di sicurezza: se i listener realtime
+// erano ancora attivi non cambia nulla, se invece si erano bloccati questo
+// riallinea subito i dati senza bisogno che l'operatore ricarichi la pagina.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') forceRefresh(true);
+});
+window.addEventListener('online', () => forceRefresh(true));
+window.addEventListener('focus',  () => forceRefresh(true));
 
 // Inizializza operatori di default su Firestore se la collection è vuota
 async function ensureDefaultOperatori() {
@@ -826,12 +933,10 @@ function applyRole() {
   document.getElementById('header-avatar').textContent = (currentOperatore||'?').slice(0,2).toUpperCase();
   document.getElementById('header-name').textContent   = currentOperatore || '';
   document.getElementById('header-role').textContent   = admin ? 'Amministratore' : 'Operatore';
-  document.getElementById('btn-impostazioni').style.display = admin ? '' : 'none';
-  const b = document.getElementById('btn-add-ospite');
-  if (b) b.style.display = admin ? '' : 'none';
 }
 
 function resetPin(op) {
+  if (!isAdmin()) { showToast("Solo l'amministratore può resettare i PIN"); return; }
   const pins = JSON.parse(localStorage.getItem('cp_pins')||'{}');
   delete pins[op];
   localStorage.setItem('cp_pins', JSON.stringify(pins));
@@ -902,7 +1007,7 @@ function renderOspiti() {
 
   if (!lista.length) {
     document.getElementById('ospiti-list').innerHTML =
-      `<div class="empty">Nessun ospite trovato.${isAdmin()&&!activeFilter?'<br>Premi "+ Ospite" per aggiungerne uno.':''}</div>`;
+      `<div class="empty">Nessun ospite trovato.${!activeFilter?'<br>Premi "+ Ospite" per aggiungerne uno.':''}</div>`;
     return;
   }
 
@@ -915,9 +1020,7 @@ function renderOspiti() {
       ? `<span class="badge red">Checkout oggi</span>`
       : urgente ? `<span class="badge orange">Checkout tra ${g} gg</span>`
       : `<span class="badge green">Checkout ${new Date(o.checkout).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'})}</span>`;
-    const badgePiano = o.piano==='completa'
-      ? `<span class="badge blue">Pensione completa</span>`
-      : `<span class="badge gray">Mezza pensione</span>`;
+    const badgePiano = pianoBadgeHtml(o.piano);
     return `<div class="ospite-card" style="border-left:${borderLeft}">
       <div class="ospite-header" onclick="goDettaglio('${o.id}')">
         <div class="ospite-avatar ${urgente?'urgente':''}">${initials(o)}</div>
@@ -994,7 +1097,7 @@ function goDettaglioChiuso(id) {
   document.getElementById('chdet-nome').textContent   = `${o.cognome} ${o.nome}`;
   document.getElementById('chdet-sub').textContent    = o.alloggio;
   document.getElementById('chdet-totale').textContent = fmt(totOspite(o.id));
-  document.getElementById('btn-ripristina').style.display = isAdmin() ? '' : 'none';
+  document.getElementById('btn-ripristina').style.display = '';
   const miei = ordini.filter(x=>x.ospiteId===o.id);
   if (!miei.length) {
     document.getElementById('chdet-ordini-list').innerHTML = '<div class="empty">Nessun ordine registrato per questo conto.</div>';
@@ -1023,7 +1126,6 @@ function goDettaglioChiuso(id) {
 }
 
 async function ripristinaConto() {
-  if (!isAdmin()) { showToast("Solo l'amministratore può ripristinare i conti"); return; }
   const o = ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
   showModal(
     'Ripristina conto',
@@ -1044,7 +1146,8 @@ function renderDettaglio() {
   document.getElementById('det-nome').textContent   = `${o.cognome} ${o.nome}`;
   document.getElementById('det-sub').textContent    = o.alloggio;
   document.getElementById('det-totale').textContent = fmt(totOspite(o.id));
-  document.getElementById('btn-chiudi-conto').style.display = isAdmin() ? '' : 'none';
+  document.getElementById('btn-chiudi-conto').style.display = '';
+  document.getElementById('btn-edit-ospite').style.display  = '';
   const miei = ordini.filter(x=>x.ospiteId===o.id);
   if (!miei.length) {
     document.getElementById('ordini-list').innerHTML = '<div class="empty">Nessun ordine ancora.<br>Premi "Aggiungi ordine" per iniziare.</div>';
@@ -1066,7 +1169,7 @@ function renderDettaglio() {
         </div>
         <div class="ordine-destra">
           <span class="ordine-importo">${fmt(ord.importo)}</span>
-          ${isAdmin()?`<button class="del-btn" onclick="deleteOrdine('${ord.id}')">&#10005;</button>`:''}
+          <button class="del-btn" onclick="deleteOrdine('${ord.id}')">&#10005;</button>
         </div>
       </div>`).join('')}
     </div>`;
@@ -1094,7 +1197,7 @@ function renderReport(ospiteId) {
     <div class="report-header">
       <div style="font-size:11px;opacity:.65;text-transform:uppercase;letter-spacing:.06em">Centro Vacanze Garden River</div>
       <div class="report-nome">${o.cognome} ${o.nome}</div>
-      <div class="report-sub">${o.alloggio} · ${o.piano==='completa'?'Pensione completa':'Mezza pensione'}</div>
+      <div class="report-sub">${o.alloggio} · ${pianoLabel(o.piano)}</div>
       <div style="font-size:11px;opacity:.55;margin-top:6px">Generato il ${now}</div>
     </div>
     <div class="report-body">
@@ -1132,7 +1235,7 @@ function stampaReport() {
   <div class="header">
     <div class="brand">Centro Vacanze Garden River</div>
     <div class="nome">${o.cognome} ${o.nome}</div>
-    <div class="sub">${o.alloggio} · ${o.piano==='completa'?'Pensione completa':'Mezza pensione'}</div>
+    <div class="sub">${o.alloggio} · ${pianoLabel(o.piano)}</div>
     <div class="data">Generato il ${now}</div>
   </div>
   <div class="body">
@@ -1154,7 +1257,6 @@ function stampaReport() {
 
 // ── NAVIGAZIONE ───────────────────────────────────────────────────────────────
 function switchTab(id) {
-  if ((id==='setup'||id==='nuovo-ospite') && !isAdmin()) { showToast("Accesso riservato all'amministratore"); return; }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
@@ -1189,7 +1291,6 @@ function goReportDa(id){ currentOspiteId=id; renderReport(id); document.querySel
 
 // ── AZIONI ────────────────────────────────────────────────────────────────────
 async function addOspite() {
-  if (!isAdmin()) { showToast("Solo l'amministratore può aggiungere ospiti"); return; }
   const nome     = document.getElementById('no-nome').value.trim();
   const cognome  = document.getElementById('no-cognome').value.trim();
   const alloggio = document.getElementById('no-alloggio').value.trim();
@@ -1203,6 +1304,37 @@ async function addOspite() {
     ['no-nome','no-cognome','no-alloggio','no-checkout'].forEach(id=>document.getElementById(id).value='');
     showToast(`${cognome} ${nome} registrato!`);
     switchTab('ospiti');
+  } catch(e) {
+    console.error(e);
+    showToast('Errore salvataggio — riprova');
+  }
+}
+
+// ── MODIFICA ANAGRAFICA OSPITE ────────────────────────────────────────────────
+function goModificaOspite() {
+  const o = ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
+  document.getElementById('mo-nome').value     = o.nome;
+  document.getElementById('mo-cognome').value  = o.cognome;
+  document.getElementById('mo-alloggio').value = o.alloggio;
+  document.getElementById('mo-piano').value    = o.piano || 'mezza';
+  document.getElementById('mo-checkout').value = o.checkout;
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-modifica-ospite').classList.add('active');
+}
+
+async function salvaModificaOspite() {
+  const o = ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
+  const nome     = document.getElementById('mo-nome').value.trim();
+  const cognome  = document.getElementById('mo-cognome').value.trim();
+  const alloggio = document.getElementById('mo-alloggio').value.trim();
+  const piano    = document.getElementById('mo-piano').value;
+  const checkout = document.getElementById('mo-checkout').value;
+  if (!nome||!cognome||!alloggio||!checkout) { showToast('Compila tutti i campi'); return; }
+  const aggiornato = { ...o, nome, cognome, alloggio, piano, checkout };
+  try {
+    await fsSetOspite(aggiornato);
+    showToast('Anagrafica aggiornata!');
+    goDettaglio(o.id);
   } catch(e) {
     console.error(e);
     showToast('Errore salvataggio — riprova');
@@ -1231,7 +1363,6 @@ async function addOrdine() {
 }
 
 function deleteOrdine(id) {
-  if (!isAdmin()) { showToast("Solo l'amministratore può eliminare ordini"); return; }
   const o = ordini.find(x => x.id === id);
   if (!o) return;
   showModal(
@@ -1246,7 +1377,6 @@ function deleteOrdine(id) {
 }
 
 function chiudiConto() {
-  if (!isAdmin()) { showToast("Solo l'amministratore può chiudere i conti"); return; }
   const o = ospiti.find(x => x.id === currentOspiteId);
   if (!o) return;
   const tot = totOspite(o.id);
@@ -1274,6 +1404,7 @@ async function addOperatore() {
 }
 
 function deleteOperatore(nome) {
+  if (!isAdmin()) { showToast("Solo l'amministratore può rimuovere operatori"); return; }
   if (nome===ADMIN_NAME) { showToast("Non puoi rimuovere l'amministratore"); return; }
   if (operatori.length<=1) { showToast('Almeno un operatore richiesto'); return; }
   showModal('Rimuovi operatore', `Rimuovere ${nome} dalla lista operatori?`, 'Rimuovi', 'var(--red)',
@@ -1285,14 +1416,15 @@ function deleteOperatore(nome) {
 
 function renderOperatoriList() {
   const pins = JSON.parse(localStorage.getItem('cp_pins')||'{}');
+  const admin = isAdmin();
   document.getElementById('operatori-list').innerHTML = operatori.map(op=>{
     const hasPIN=!!pins[op]; const isAdm=op===ADMIN_NAME;
     return `<div style="display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
       <div style="width:34px;height:34px;border-radius:50%;background:${isAdm?'var(--green-700)':'var(--gray-100)'};color:${isAdm?'var(--white)':'var(--gray-500)'};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${op.slice(0,2).toUpperCase()}</div>
       <span style="flex:1;font-size:14px;font-weight:600">${op}${isAdm?` <span style="font-size:10px;color:var(--orange);font-weight:700;text-transform:uppercase;margin-left:4px">Admin</span>`:''}</span>
       <span style="font-size:11px;color:${hasPIN?'var(--green-ok)':'var(--amber)'};font-weight:600">${hasPIN?'PIN ok':'Nessun PIN'}</span>
-      ${hasPIN?`<button onclick="resetPin('${op}')" style="height:28px;padding:0 10px;border:1px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber);border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Reset</button>`:''}
-      ${!isAdm?`<button onclick="deleteOperatore('${op}')" style="width:30px;height:30px;border:none;background:var(--red-bg);color:var(--red);border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">&#10005;</button>`:''}
+      ${admin&&hasPIN?`<button onclick="resetPin('${op}')" style="height:28px;padding:0 10px;border:1px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber);border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font)">Reset</button>`:''}
+      ${admin&&!isAdm?`<button onclick="deleteOperatore('${op}')" style="width:30px;height:30px;border:none;background:var(--red-bg);color:var(--red);border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">&#10005;</button>`:''}
     </div>`;
   }).join('');
 }
@@ -1352,6 +1484,11 @@ function showToast(msg) {
 // ── START ─────────────────────────────────────────────────────────────────────
 async function start() {
   init();
+  await waitForFirebase();
+  if (window._fbAuthError) {
+    setSyncStatus('error');
+    showToast("Errore di accesso al database — attiva 'Anonymous' in Authentication su Firebase");
+  }
   await ensureDefaultOperatori();
   await startRealtimeSync();
 }
