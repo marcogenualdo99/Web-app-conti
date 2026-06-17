@@ -337,6 +337,7 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
       </div>
     </div>
     <div class="header-btns">
+      <button class="hbtn ghost icon" onclick="location.href=HUB_URL" title="Torna alla Hub">&#8592;</button>
       <button class="hbtn ghost icon" onclick="switchTab('setup')" id="btn-setup" title="Impostazioni">&#9881;</button>
       <div id="sync-status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.7)">
         <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.35);flex-shrink:0;transition:background .3s"></span>
@@ -1377,6 +1378,32 @@ function showToast(msg) {
   t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
+
+// ── SWIPE PER TORNARE INDIETRO (come su iOS, dal bordo sinistro) ─────────────
+function initSwipeBack(onNoBack) {
+  let touchStartX = 0, touchStartY = 0, touching = false;
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    if (e.target.closest('.top-bar')) return; // non interferire con lo scroll dei tab
+    const t = e.touches[0];
+    if (t.clientX > 30) return; // solo se parte dal margine sinistro
+    touchStartX = t.clientX; touchStartY = t.clientY; touching = true;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!touching) return;
+    touching = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = Math.abs(t.clientY - touchStartY);
+    if (dx > 80 && dy < 60) {
+      const activeSection = document.querySelector('.section.active');
+      const backBtn = activeSection && activeSection.querySelector('.back-btn');
+      if (backBtn) backBtn.click();
+      else if (onNoBack) onNoBack();
+    }
+  }, { passive: true });
+}
+initSwipeBack(() => location.href = HUB_URL);
 
 // ── START ─────────────────────────────────────────────────────────────────────
 async function start() {
