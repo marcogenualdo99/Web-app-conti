@@ -10,6 +10,29 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Conti Pensione">
 <meta name="mobile-web-app-capable" content="yes">
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, updateDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBAnVI0MTNKZ9rIHpATgKyCp88nq0u0vsY",
+    authDomain: "garden-river-conti-febed.firebaseapp.com",
+    projectId: "garden-river-conti-febed",
+    storageBucket: "garden-river-conti-febed.firebasestorage.app",
+    messagingSenderId: "113994721180",
+    appId: "1:113994721180:web:c41d309c9270134b640a59"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db    = getFirestore(fbApp);
+
+  // Expose to global scope so the main script (non-module) can use it
+  window._fb = { db, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, updateDoc };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
 <style>
 :root {
   --green-900: #0D2B1E;
@@ -485,30 +508,15 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
       <div><div class="back-title">Impostazioni</div></div>
     </div>
     <div class="card">
-      <h3>Collegamento GitHub</h3>
-      <p class="subtitle">I dati vengono sincronizzati su GitHub — nessun servizio esterno</p>
-
-      <!-- Banner visibile solo se non connesso -->
-      <div id="no-config-banner" style="display:none;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px">
-        <p style="font-size:13px;font-weight:700;color:var(--amber);margin-bottom:6px">Nessuna configurazione trovata</p>
-        <p style="font-size:12px;color:var(--gray-700);line-height:1.6;margin-bottom:10px">Se hai già configurato l'app su un altro dispositivo, premi il tasto qui sotto per caricare automaticamente le impostazioni da GitHub.</p>
-        <button onclick="caricaConfigManuale()" style="width:100%;height:42px;background:var(--amber);color:white;border:none;border-radius:var(--radius-xl);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font)">Carica configurazione da GitHub</button>
+      <h3>Database</h3>
+      <p class="subtitle">I dati sono sincronizzati in tempo reale su Firebase — nessuna configurazione richiesta su nessun dispositivo</p>
+      <div style="background:var(--green-50);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <span id="fb-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--gray-300);flex-shrink:0"></span>
+        <div>
+          <p id="fb-status-text" style="font-size:13px;font-weight:700;color:var(--gray-700)">Connessione in corso...</p>
+          <p style="font-size:11px;color:var(--gray-500);margin-top:2px">Sincronizzazione automatica e istantanea attiva</p>
+        </div>
       </div>
-
-      <div class="setup-step"><div class="step-num">1</div><div class="step-text">Vai su <strong>github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)</strong></div></div>
-      <div class="setup-step"><div class="step-num">2</div><div class="step-text">Clicca <strong>Generate new token (classic)</strong>, spunta solo <strong>repo</strong> e genera.</div></div>
-      <div class="setup-step"><div class="step-num">3</div><div class="step-text">Incolla il token qui sotto — salvato solo sul dispositivo, mai condiviso.</div></div>
-      <div class="form-group"><label>GitHub Token</label><input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"></div>
-      <div class="form-group"><label>Repository (es. tuonome/repo)</label><input type="text" id="gh-repo" placeholder="marcogenualdo99/Web-app-conti"></div>
-      <p id="gh-status" style="font-size:13px;color:var(--green-ok);font-weight:600;margin-bottom:10px"></p>
-      <button class="btn-primary" onclick="connectGitHub()">Connetti GitHub</button>
-      <div class="divider"></div>
-      <div style="background:var(--green-50);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
-        <p style="font-size:13px;font-weight:700;color:var(--green-700);margin-bottom:4px">Salvataggio automatico attivo</p>
-        <p style="font-size:12px;color:var(--gray-500);line-height:1.6">Ogni modifica viene salvata automaticamente su GitHub. L'app si aggiorna ogni 60 secondi e ogni volta che torni in primo piano.</p>
-      </div>
-      <button onclick="syncGitHub()" style="width:100%;height:44px;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:var(--radius-xl);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);margin-bottom:8px">Forza aggiornamento ora</button>
-      <div class="divider"></div>
       <button onclick="testConnessione()" style="width:100%;height:44px;background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);border-radius:var(--radius-xl);font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font)">Testa connessione</button>
       <div id="debug-panel" style="display:none;margin-top:12px;background:#1e1e2e;border-radius:var(--radius-sm);padding:14px;font-family:monospace;font-size:11px;color:#cdd6f4;line-height:1.7;word-break:break-all;max-height:240px;overflow-y:auto"></div>
     </div>
@@ -540,11 +548,9 @@ main { max-width: 750px; margin: 0 auto; padding: 16px 14px 100px; }
 
 <script>
 // ── COSTANTI ─────────────────────────────────────────────────────────────────
-const ADMIN_NAME     = 'Marco';
-const PIN_LENGTH     = 4;
-const GH_FILE_OSPITI = 'ospiti.json';
-const GH_FILE_ORDINI = 'ordini.json';
-const PUNTI_RISTORO  = ['Bar Piscina', 'Bar Teatro', 'Ristorante'];
+const ADMIN_NAME    = 'Marco';
+const PIN_LENGTH    = 4;
+const PUNTI_RISTORO = ['Bar Piscina', 'Bar Teatro', 'Ristorante'];
 
 // ── STATO ─────────────────────────────────────────────────────────────────────
 let ospiti           = [];
@@ -554,27 +560,14 @@ let currentOperatore = null;
 let currentOspiteId  = null;
 let loginTargetOp    = null;
 let pinBuffer        = '';
-let nextId           = 200;
 let activeFilter     = null; // 'oggi' | 'breve' | 'attivi' | null
-
-let ghToken = localStorage.getItem('cp_gh_token') || '';
-let ghRepo  = localStorage.getItem('cp_gh_repo')  || '';
-
-// ── DEMO DATA ─────────────────────────────────────────────────────────────────
-const DEMO_OSPITI = [
-  {id:1,nome:'Marco', cognome:'Rossi',  alloggio:'Bungalow 12',piano:'mezza',   checkout:'2025-06-20',chiuso:false},
-  {id:2,nome:'Elena', cognome:'Bianchi',alloggio:'Glamping 5', piano:'completa',checkout:'2025-06-20',chiuso:false},
-  {id:3,nome:'Luca',  cognome:'Verdi',  alloggio:'Piazzola 34',piano:'mezza',   checkout:'2025-06-27',chiuso:false},
-];
-const DEMO_ORDINI = [
-  {id:1,ospiteId:1,punto:'Ristorante', desc:'Cena 2 persone',   importo:42.00,operatore:'Marco', ts:'2025-06-17T20:15'},
-  {id:2,ospiteId:1,punto:'Bar Piscina',desc:'Cocktail x3',      importo:18.50,operatore:'Giulia',ts:'2025-06-18T17:30'},
-  {id:3,ospiteId:2,punto:'Ristorante', desc:'Pranzo famiglia',  importo:67.00,operatore:'Luca',  ts:'2025-06-18T13:00'},
-  {id:4,ospiteId:3,punto:'Bar Teatro', desc:'Pizza x2 + bibite',importo:29.00,operatore:'Sara',  ts:'2025-06-18T21:00'},
-];
+let fbConnected      = false;
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
-function uid()        { return ++nextId; }
+// ID univoco — sicuro anche con più dispositivi simultanei
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
 function isAdmin()    { return currentOperatore === ADMIN_NAME; }
 function fmt(n)       { return n.toFixed(2).replace('.',',') + ' €'; }
 function fmtTs(ts) {
@@ -587,17 +580,158 @@ function giorniA(d)   { return Math.ceil((new Date(d) - new Date(oggi())) / 8640
 function initials(o)  { return (o.cognome[0]||'') + (o.nome[0]||''); }
 function totOspite(id){ return ordini.filter(o=>o.ospiteId===id).reduce((s,o)=>s+o.importo,0); }
 
+// ── FIREBASE — REALTIME SYNC ─────────────────────────────────────────────────
+// Aspetta che il modulo Firebase (caricato in <head>) sia pronto
+function waitForFirebase() {
+  return new Promise(resolve => {
+    if (window._fbReady) return resolve();
+    window.addEventListener('firebase-ready', () => resolve(), { once: true });
+  });
+}
+
+let _unsubOspiti = null;
+let _unsubOrdini = null;
+let _unsubOperatori = null;
+
+function setSyncStatus(state) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  const fbDot = document.getElementById('fb-status-dot');
+  const fbTxt = document.getElementById('fb-status-text');
+  const map = {
+    connecting: { color:'#60A5FA', text:'Connessione...'   },
+    live:       { color:'#4ADE80', text:'In tempo reale'   },
+    saving:     { color:'#FCD34D', text:'Salvataggio...'   },
+    error:      { color:'#F87171', text:'Errore connessione' },
+    offline:    { color:'rgba(255,255,255,0.3)', text:'Offline' },
+  };
+  const s = map[state] || map.offline;
+  if (dot)   dot.style.background = s.color;
+  if (label) label.textContent    = s.text;
+  if (fbDot) fbDot.style.background = s.color;
+  if (fbTxt) fbTxt.textContent = state === 'live' ? 'Connesso — sincronizzazione in tempo reale attiva'
+                                : state === 'connecting' ? 'Connessione in corso...'
+                                : state === 'error' ? 'Errore di connessione al database'
+                                : 'Database offline';
+}
+
+// Avvia i listener realtime su Firestore — ogni modifica remota aggiorna subito la UI
+async function startRealtimeSync() {
+  await waitForFirebase();
+  const { db, collection, onSnapshot } = window._fb;
+  setSyncStatus('connecting');
+
+  try {
+    // Listener ospiti
+    _unsubOspiti = onSnapshot(collection(db, 'ospiti'), (snap) => {
+      ospiti = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+      fbConnected = true;
+      setSyncStatus('live');
+      // Se siamo nel dettaglio di un ospite, aggiorna anche quella vista
+      if (document.getElementById('sec-dettaglio').classList.contains('active')) renderDettaglio();
+    }, (err) => {
+      console.error('Errore listener ospiti:', err);
+      setSyncStatus('error');
+    });
+
+    // Listener ordini
+    _unsubOrdini = onSnapshot(collection(db, 'ordini'), (snap) => {
+      ordini = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+      if (document.getElementById('sec-dettaglio').classList.contains('active')) renderDettaglio();
+    }, (err) => {
+      console.error('Errore listener ordini:', err);
+      setSyncStatus('error');
+    });
+
+    // Listener operatori (config condivisa)
+    _unsubOperatori = onSnapshot(collection(db, 'operatori'), (snap) => {
+      if (!snap.empty) {
+        operatori = snap.docs.map(d => d.data().nome).filter(Boolean);
+        if (!operatori.length) operatori = ['Marco','Giulia','Luca','Sara'];
+      }
+      initLogin();
+      if (document.getElementById('sec-setup').classList.contains('active')) renderOperatoriList();
+    }, (err) => {
+      console.error('Errore listener operatori:', err);
+    });
+
+  } catch(e) {
+    console.error('Errore avvio sync:', e);
+    setSyncStatus('error');
+  }
+}
+
+// Inizializza operatori di default su Firestore se la collection è vuota
+async function ensureDefaultOperatori() {
+  await waitForFirebase();
+  const { db, collection, getDocs, setDoc, doc } = window._fb;
+  try {
+    const snap = await getDocs(collection(db, 'operatori'));
+    if (snap.empty) {
+      const defaults = ['Marco','Giulia','Luca','Sara'];
+      for (const nome of defaults) {
+        await setDoc(doc(db, 'operatori', nome), { nome });
+      }
+    }
+  } catch(e) { console.error('Errore init operatori:', e); }
+}
+
+// ── SCRITTURE FIRESTORE ──────────────────────────────────────────────────────
+async function fsSetOspite(ospite) {
+  await waitForFirebase();
+  const { db, doc, setDoc } = window._fb;
+  const { id, ...data } = ospite;
+  await setDoc(doc(db, 'ospiti', id), data);
+}
+
+async function fsDeleteOspite(id) {
+  await waitForFirebase();
+  const { db, doc, deleteDoc } = window._fb;
+  await deleteDoc(doc(db, 'ospiti', id));
+}
+
+async function fsSetOrdine(ordine) {
+  await waitForFirebase();
+  const { db, doc, setDoc } = window._fb;
+  const { id, ...data } = ordine;
+  await setDoc(doc(db, 'ordini', id), data);
+}
+
+async function fsDeleteOrdine(id) {
+  await waitForFirebase();
+  const { db, doc, deleteDoc } = window._fb;
+  await deleteDoc(doc(db, 'ordini', id));
+}
+
+async function fsAddOperatore(nome) {
+  await waitForFirebase();
+  const { db, doc, setDoc } = window._fb;
+  await setDoc(doc(db, 'operatori', nome), { nome });
+}
+
+async function fsDeleteOperatore(nome) {
+  await waitForFirebase();
+  const { db, doc, deleteDoc } = window._fb;
+  await deleteDoc(doc(db, 'operatori', nome));
+}
+
 // ── LOGIN / PIN ───────────────────────────────────────────────────────────────
 function initLogin() {
   const sel = document.getElementById('login-sel');
+  if (!sel) return;
+  const prevValue = sel.value;
   sel.innerHTML = '<option value="">— Seleziona operatore —</option>' +
     operatori.map(op=>`<option value="${op}">${op}</option>`).join('');
+  if (operatori.includes(prevValue)) sel.value = prevValue;
+
   const saved = sessionStorage.getItem('cp_operatore');
   if (saved && operatori.includes(saved)) {
     currentOperatore = saved;
     document.getElementById('login-screen').classList.add('hidden');
     applyRole();
-  } else {
+  } else if (!currentOperatore) {
     document.getElementById('login-screen').classList.remove('hidden');
   }
 }
@@ -665,27 +799,6 @@ function loginSuccess(op) {
   applyRole(); showToast('Benvenuto, ' + op + '!');
 }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────────
-let _modalCallback = null;
-
-function showModal(title, body, confirmLabel, confirmColor, onConfirm) {
-  document.getElementById('modal-title').textContent   = title;
-  document.getElementById('modal-body').textContent    = body;
-  const btn = document.getElementById('modal-confirm');
-  btn.textContent       = confirmLabel || 'Conferma';
-  btn.style.background  = confirmColor || 'var(--green-700)';
-  btn.onclick           = () => { closeModal(); onConfirm(); };
-  const overlay = document.getElementById('modal-overlay');
-  overlay.style.display = 'flex';
-  // Close on backdrop tap
-  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').style.display = 'none';
-}
-
-// Logout esplicito
 function doLogout() {
   showModal(
     'Cambio operatore',
@@ -696,27 +809,6 @@ function doLogout() {
   );
 }
 
-// Chiudi conto
-function chiudiConto() {
-  if (!isAdmin()) { showToast("Solo l'amministratore può chiudere i conti"); return; }
-  const o = ospiti.find(x => x.id === currentOspiteId);
-  if (!o) return;
-  const tot = totOspite(o.id);
-  showModal(
-    'Chiudi conto',
-    `Segna come incassato il conto di ${o.cognome} ${o.nome}?\nTotale: ${fmt(tot)}`,
-    'Chiudi e incassa',
-    'var(--green-700)',
-    () => {
-      o.chiuso = true;
-      save(); render();
-      showToast(`Conto di ${o.cognome} ${o.nome} chiuso!`);
-      switchTab('ospiti');
-    }
-  );
-}
-
-// Usato anche da click avatar (per cambio rapido)
 function _clearSession() {
   currentOperatore = null;
   sessionStorage.removeItem('cp_operatore');
@@ -747,33 +839,30 @@ function resetPin(op) {
   renderOperatoriList();
 }
 
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function showModal(title, body, confirmLabel, confirmColor, onConfirm) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  const btn = document.getElementById('modal-confirm');
+  btn.textContent      = confirmLabel || 'Conferma';
+  btn.style.background = confirmColor || 'var(--green-700)';
+  btn.onclick = () => { closeModal(); onConfirm(); };
+  const overlay = document.getElementById('modal-overlay');
+  overlay.style.display = 'flex';
+  overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+}
+function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
-  const so  = localStorage.getItem('cp_ospiti');
-  const sr  = localStorage.getItem('cp_ordini');
-  const sop = localStorage.getItem('cp_operatori');
-  ospiti    = so  ? JSON.parse(so)  : JSON.parse(JSON.stringify(DEMO_OSPITI));
-  ordini    = sr  ? JSON.parse(sr)  : JSON.parse(JSON.stringify(DEMO_ORDINI));
-  operatori = sop ? JSON.parse(sop) : ['Marco','Giulia','Luca','Sara'];
-  if (ghToken) {
-    document.getElementById('gh-token').value = ghToken;
-    document.getElementById('gh-repo').value  = ghRepo;
-    document.getElementById('gh-status').textContent = 'GitHub connesso';
-  }
-  render(); initLogin();
-}
-
-function save() {
-  localStorage.setItem('cp_ospiti',    JSON.stringify(ospiti));
-  localStorage.setItem('cp_ordini',    JSON.stringify(ordini));
-  localStorage.setItem('cp_operatori', JSON.stringify(operatori));
+  render();
+  initLogin();
 }
 
 // ── FILTER BOX ────────────────────────────────────────────────────────────────
 function filterByCard(type) {
   if (activeFilter === type) { clearFilter(); return; }
   activeFilter = type;
-  // highlight active card
   ['oggi','breve','attivi'].forEach(k => {
     document.getElementById('card-'+k).classList.toggle('active-filter', k === type);
   });
@@ -801,15 +890,13 @@ function renderAlerts() {
 }
 
 function renderOspiti() {
-  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  const searchEl = document.getElementById('search-input');
+  const q = (searchEl ? searchEl.value : '').toLowerCase();
   let lista = ospiti.filter(o=>!o.chiuso);
 
-  // Apply card filter
   if (activeFilter === 'oggi')  lista = lista.filter(o => giorniA(o.checkout) === 0);
   if (activeFilter === 'breve') lista = lista.filter(o => { const g=giorniA(o.checkout); return g>0&&g<=2; });
-  // 'attivi' = all open, no extra filter
 
-  // Apply search
   if (q) lista = lista.filter(o=>(o.nome+' '+o.cognome+' '+o.alloggio).toLowerCase().includes(q));
   lista.sort((a,b)=>new Date(a.checkout)-new Date(b.checkout));
 
@@ -832,7 +919,7 @@ function renderOspiti() {
       ? `<span class="badge blue">Pensione completa</span>`
       : `<span class="badge gray">Mezza pensione</span>`;
     return `<div class="ospite-card" style="border-left:${borderLeft}">
-      <div class="ospite-header" onclick="goDettaglio(${o.id})">
+      <div class="ospite-header" onclick="goDettaglio('${o.id}')">
         <div class="ospite-avatar ${urgente?'urgente':''}">${initials(o)}</div>
         <div class="ospite-info">
           <div class="ospite-nome">${o.cognome} ${o.nome}</div>
@@ -845,8 +932,8 @@ function renderOspiti() {
         </div>
       </div>
       <div class="ospite-actions">
-        <button class="btn-action primary" onclick="goDettaglio(${o.id})">Ordini</button>
-        <button class="btn-action ghost"   onclick="goReportDa(${o.id})">Resoconto attuale</button>
+        <button class="btn-action primary" onclick="goDettaglio('${o.id}')">Ordini</button>
+        <button class="btn-action ghost"   onclick="goReportDa('${o.id}')">Resoconto attuale</button>
       </div>
     </div>`;
   }).join('');
@@ -865,7 +952,7 @@ function renderScadenze() {
     const g=giorniA(o.checkout); const tot=totOspite(o.id);
     const cls=g===0?'oggi':g<=2?'urgente':'';
     const badge=g===0?`<span class="badge red">Checkout oggi</span>`:g<=2?`<span class="badge orange">Tra ${g} giorni</span>`:`<span class="badge gray">Tra ${g} giorni</span>`;
-    return `<div class="scadenza-row ${cls}" onclick="goDettaglio(${o.id})" style="cursor:pointer">
+    return `<div class="scadenza-row ${cls}" onclick="goDettaglio('${o.id}')" style="cursor:pointer">
       <div class="ospite-avatar ${cls?'urgente':''}">${initials(o)}</div>
       <div class="scadenza-info"><div class="scadenza-nome">${o.cognome} ${o.nome}</div><div class="scadenza-sub">${o.alloggio}</div><div style="margin-top:5px">${badge}</div></div>
       <div class="scadenza-destra"><div class="importo">${fmt(tot)}</div><div class="data">${new Date(o.checkout).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'})}</div></div>
@@ -884,7 +971,7 @@ function renderChiusi() {
     chiusi.map(o=>{
       const tot = totOspite(o.id);
       const nOrd = ordini.filter(x=>x.ospiteId===o.id).length;
-      return `<div class="ospite-card" style="opacity:.8;cursor:pointer" onclick="goDettaglioChiuso(${o.id})">
+      return `<div class="ospite-card" style="opacity:.8;cursor:pointer" onclick="goDettaglioChiuso('${o.id}')">
         <div class="ospite-header">
           <div class="ospite-avatar" style="background:var(--gray-100);color:var(--gray-500)">${initials(o)}</div>
           <div class="ospite-info">
@@ -907,13 +994,10 @@ function goDettaglioChiuso(id) {
   document.getElementById('chdet-nome').textContent   = `${o.cognome} ${o.nome}`;
   document.getElementById('chdet-sub').textContent    = o.alloggio;
   document.getElementById('chdet-totale').textContent = fmt(totOspite(o.id));
-  // Ripristina visibile solo ad admin
   document.getElementById('btn-ripristina').style.display = isAdmin() ? '' : 'none';
-  // Render ordini (sola lettura, nessun pulsante elimina)
   const miei = ordini.filter(x=>x.ospiteId===o.id);
   if (!miei.length) {
-    document.getElementById('chdet-ordini-list').innerHTML =
-      '<div class="empty">Nessun ordine registrato per questo conto.</div>';
+    document.getElementById('chdet-ordini-list').innerHTML = '<div class="empty">Nessun ordine registrato per questo conto.</div>';
   } else {
     document.getElementById('chdet-ordini-list').innerHTML = PUNTI_RISTORO.map(p=>{
       const po = miei.filter(x=>x.punto===p);
@@ -929,9 +1013,7 @@ function goDettaglioChiuso(id) {
             <div class="ordine-desc">${ord.desc}</div>
             <div class="ordine-meta">${fmtTs(ord.ts)} · ${ord.operatore}</div>
           </div>
-          <div class="ordine-destra">
-            <span class="ordine-importo">${fmt(ord.importo)}</span>
-          </div>
+          <div class="ordine-destra"><span class="ordine-importo">${fmt(ord.importo)}</span></div>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -940,17 +1022,16 @@ function goDettaglioChiuso(id) {
   document.getElementById('sec-dettaglio-chiuso').classList.add('active');
 }
 
-function ripristinaConto() {
+async function ripristinaConto() {
   if (!isAdmin()) { showToast("Solo l'amministratore può ripristinare i conti"); return; }
   const o = ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
   showModal(
     'Ripristina conto',
     `Riaprire il conto di ${o.cognome} ${o.nome}? Tornerà tra i conti attivi.`,
-    'Ripristina',
-    'var(--amber)',
-    () => {
+    'Ripristina', 'var(--amber)',
+    async () => {
       o.chiuso = false;
-      save(); render();
+      await fsSetOspite(o);
       showToast(`Conto di ${o.cognome} ${o.nome} ripristinato!`);
       switchTab('ospiti');
     }
@@ -985,15 +1066,15 @@ function renderDettaglio() {
         </div>
         <div class="ordine-destra">
           <span class="ordine-importo">${fmt(ord.importo)}</span>
-          ${isAdmin()?`<button class="del-btn" onclick="deleteOrdine(${ord.id})">&#10005;</button>`:''}
+          ${isAdmin()?`<button class="del-btn" onclick="deleteOrdine('${ord.id}')">&#10005;</button>`:''}
         </div>
       </div>`).join('')}
     </div>`;
   }).join('');
 }
 
-function _buildReportHTML(ospiteId) {
-  const o = ospiti.find(x=>x.id===ospiteId); if (!o) return '';
+function _buildReportData(ospiteId) {
+  const o = ospiti.find(x=>x.id===ospiteId); if (!o) return null;
   const miei = ordini.filter(x=>x.ospiteId===o.id);
   const tot  = miei.reduce((s,x)=>s+x.importo, 0);
   const now  = new Date().toLocaleString('it-IT');
@@ -1003,13 +1084,11 @@ function _buildReportHTML(ospiteId) {
     return `<div class="report-cat"><span>${p}</span><span>${fmt(ptot)}</span></div>` +
       po.map(ord=>`<div class="report-row"><span>${fmtTs(ord.ts)} — ${ord.desc}</span><span class="report-imp">${fmt(ord.importo)}</span></div>`).join('');
   }).join('');
-
-  // Inline HTML usable both in-app and in a new tab
   return { rows, tot, now, o };
 }
 
 function renderReport(ospiteId) {
-  const r = _buildReportHTML(ospiteId); if (!r) return;
+  const r = _buildReportData(ospiteId); if (!r) return;
   const { rows, tot, now, o } = r;
   document.getElementById('report-content').innerHTML=`
     <div class="report-header">
@@ -1025,20 +1104,16 @@ function renderReport(ospiteId) {
 }
 
 function stampaReport() {
-  const r = _buildReportHTML(currentOspiteId); if (!r) return;
+  const r = _buildReportData(currentOspiteId); if (!r) return;
   const { rows, tot, now, o } = r;
-
-  const html = `<!DOCTYPE html>
-<html lang="it">
-<head>
-<meta charset="UTF-8">
+  const html = `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Conto ${o.cognome} ${o.nome}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:'Inter',sans-serif; background:#F9FAFB; color:#111827; padding:20px 16px 60px; max-width:480px; margin:0 auto; -webkit-font-smoothing:antialiased; }
-  .header { background:#1B4332; color:white; border-radius:16px; padding:20px; text-align:center; margin-bottom:0; }
+  .header { background:#1B4332; color:white; border-radius:16px; padding:20px; text-align:center; }
   .header .brand { font-size:11px; opacity:.65; text-transform:uppercase; letter-spacing:.06em; }
   .header .nome  { font-size:22px; font-weight:800; margin:6px 0 2px; }
   .header .sub   { font-size:13px; opacity:.75; }
@@ -1053,9 +1128,7 @@ function stampaReport() {
   .totale .val { font-size:32px; font-weight:800; color:#16A34A; }
   .print-btn { display:block; width:100%; padding:16px; background:#1B4332; color:white; border:none; border-radius:28px; font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; margin-top:8px; }
   @media print { .print-btn { display:none; } body { padding:0; background:white; } }
-</style>
-</head>
-<body>
+</style></head><body>
   <div class="header">
     <div class="brand">Centro Vacanze Garden River</div>
     <div class="nome">${o.cognome} ${o.nome}</div>
@@ -1067,23 +1140,15 @@ function stampaReport() {
     <div class="totale"><span class="lbl">TOTALE DA INCASSARE</span><span class="val">${fmt(tot)}</span></div>
   </div>
   <button class="print-btn" onclick="window.print()">Stampa</button>
-</body>
-</html>`;
-
-  // Apre in un nuovo tab — su iOS Safari funziona, da lì si può stampare o condividere
+</body></html>`;
   const w = window.open('', '_blank');
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-  } else {
-    // Fallback: se il browser blocca il popup, scarica come file
+  if (w) { w.document.write(html); w.document.close(); }
+  else {
     const blob = new Blob([html], { type:'text/html' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `conto-${o.cognome}-${o.nome}.html`.replace(/\s+/g,'-');
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `conto-${o.cognome}-${o.nome}.html`.replace(/\s+/g,'-');
+    a.click(); URL.revokeObjectURL(url);
   }
 }
 
@@ -1095,61 +1160,74 @@ function switchTab(id) {
   document.getElementById('sec-'+id).classList.add('active');
   const tm={ospiti:'tab-ospiti',scadenze:'tab-scadenze',chiusi:'tab-chiusi'};
   if (tm[id]) document.getElementById(tm[id]).classList.add('active');
-  // also highlight chiusi tab when viewing a closed conto detail
   if (id==='dettaglio-chiuso') document.getElementById('tab-chiusi').classList.add('active');
   if (id==='scadenze') renderScadenze();
   if (id==='chiusi')   renderChiusi();
-  if (id==='setup')    { renderOperatoriList(); _aggiornaSetupUI(); }
+  if (id==='setup')    renderOperatoriList();
 }
 
 function goDettaglio(id) {
-  currentOspiteId=id; renderDettaglio();
+  currentOspiteId = id;
+  renderDettaglio();
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-dettaglio').classList.add('active');
 }
 
 function goNuovoOrdine() {
-  const o=ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
-  document.getElementById('no2-sub').textContent=`${o.cognome} ${o.nome} · ${o.alloggio}`;
-  const now=new Date();
-  document.getElementById('or-ts').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  document.getElementById('or-desc').value=''; document.getElementById('or-importo').value='';
-  document.getElementById('or-operatore-label').textContent=currentOperatore||'—';
+  const o = ospiti.find(x=>x.id===currentOspiteId); if (!o) return;
+  document.getElementById('no2-sub').textContent = `${o.cognome} ${o.nome} · ${o.alloggio}`;
+  const now = new Date();
+  document.getElementById('or-ts').value = new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('or-desc').value = ''; document.getElementById('or-importo').value = '';
+  document.getElementById('or-operatore-label').textContent = currentOperatore || '—';
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-nuovo-ordine').classList.add('active');
 }
 
-function goReport() { renderReport(currentOspiteId); document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById('sec-report').classList.add('active'); }
-function goReportDa(id) { currentOspiteId=id; renderReport(id); document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById('sec-report').classList.add('active'); }
+function goReport()    { renderReport(currentOspiteId); document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById('sec-report').classList.add('active'); }
+function goReportDa(id){ currentOspiteId=id; renderReport(id); document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById('sec-report').classList.add('active'); }
 
 // ── AZIONI ────────────────────────────────────────────────────────────────────
-function addOspite() {
+async function addOspite() {
   if (!isAdmin()) { showToast("Solo l'amministratore può aggiungere ospiti"); return; }
-  const nome=document.getElementById('no-nome').value.trim();
-  const cognome=document.getElementById('no-cognome').value.trim();
-  const alloggio=document.getElementById('no-alloggio').value.trim();
-  const piano=document.getElementById('no-piano').value;
-  const checkout=document.getElementById('no-checkout').value;
+  const nome     = document.getElementById('no-nome').value.trim();
+  const cognome  = document.getElementById('no-cognome').value.trim();
+  const alloggio = document.getElementById('no-alloggio').value.trim();
+  const piano    = document.getElementById('no-piano').value;
+  const checkout = document.getElementById('no-checkout').value;
   if (!nome||!cognome||!alloggio||!checkout) { showToast('Compila tutti i campi'); return; }
-  ospiti.push({id:uid(),nome,cognome,alloggio,piano,checkout,chiuso:false});
-  save(); render();
-  ['no-nome','no-cognome','no-alloggio','no-checkout'].forEach(id=>document.getElementById(id).value='');
-  showToast(`${cognome} ${nome} registrato!`);
-  switchTab('ospiti');
+  const nuovoId = uid();
+  const ospite = { id: nuovoId, nome, cognome, alloggio, piano, checkout, chiuso: false };
+  try {
+    await fsSetOspite(ospite);
+    ['no-nome','no-cognome','no-alloggio','no-checkout'].forEach(id=>document.getElementById(id).value='');
+    showToast(`${cognome} ${nome} registrato!`);
+    switchTab('ospiti');
+  } catch(e) {
+    console.error(e);
+    showToast('Errore salvataggio — riprova');
+  }
 }
 
-function addOrdine() {
-  const punto=document.getElementById('or-punto').value;
-  const operatore=currentOperatore||'N/D';
-  const desc=document.getElementById('or-desc').value.trim();
-  const importoS=document.getElementById('or-importo').value;
-  const ts=document.getElementById('or-ts').value;
+async function addOrdine() {
+  const punto     = document.getElementById('or-punto').value;
+  const operatore = currentOperatore || 'N/D';
+  const desc      = document.getElementById('or-desc').value.trim();
+  const importoS  = document.getElementById('or-importo').value;
+  const ts        = document.getElementById('or-ts').value;
   if (!desc||!importoS||!ts) { showToast('Compila tutti i campi'); return; }
-  const importo=parseFloat(importoS.replace(',','.'));
+  const importo = parseFloat(importoS.replace(',','.'));
   if (isNaN(importo)||importo<=0) { showToast('Importo non valido'); return; }
-  ordini.push({id:uid(),ospiteId:currentOspiteId,punto,desc,importo,operatore,ts});
-  save(); showToast('Ordine salvato!');
-  switchTab('dettaglio'); renderDettaglio();
+  const nuovoId = uid();
+  const ordine = { id: nuovoId, ospiteId: currentOspiteId, punto, desc, importo, operatore, ts };
+  try {
+    await fsSetOrdine(ordine);
+    showToast('Ordine salvato!');
+    switchTab('dettaglio');
+  } catch(e) {
+    console.error(e);
+    showToast('Errore salvataggio — riprova');
+  }
 }
 
 function deleteOrdine(id) {
@@ -1157,37 +1235,57 @@ function deleteOrdine(id) {
   const o = ordini.find(x => x.id === id);
   if (!o) return;
   showModal(
-    'Elimina ordine',
-    `Eliminare "${o.desc}" (${fmt(o.importo)})?`,
-    'Elimina',
-    'var(--red)',
-    () => {
-      ordini = ordini.filter(x => x.id !== id);
-      save(); renderDettaglio();
-      document.getElementById('det-totale').textContent = fmt(totOspite(currentOspiteId));
-      showToast('Ordine eliminato');
+    'Elimina ordine', `Eliminare "${o.desc}" (${fmt(o.importo)})?`, 'Elimina', 'var(--red)',
+    async () => {
+      try {
+        await fsDeleteOrdine(id);
+        showToast('Ordine eliminato');
+      } catch(e) { showToast('Errore eliminazione'); }
+    }
+  );
+}
+
+function chiudiConto() {
+  if (!isAdmin()) { showToast("Solo l'amministratore può chiudere i conti"); return; }
+  const o = ospiti.find(x => x.id === currentOspiteId);
+  if (!o) return;
+  const tot = totOspite(o.id);
+  showModal(
+    'Chiudi conto', `Segna come incassato il conto di ${o.cognome} ${o.nome}?\nTotale: ${fmt(tot)}`,
+    'Chiudi e incassa', 'var(--green-700)',
+    async () => {
+      o.chiuso = true;
+      await fsSetOspite(o);
+      showToast(`Conto di ${o.cognome} ${o.nome} chiuso!`);
+      switchTab('ospiti');
     }
   );
 }
 
 // ── OPERATORI ─────────────────────────────────────────────────────────────────
-function addOperatore() {
-  const inp=document.getElementById('new-op'); const nome=inp.value.trim();
+async function addOperatore() {
+  const inp = document.getElementById('new-op'); const nome = inp.value.trim();
   if (!nome) { showToast('Inserisci un nome'); return; }
   if (operatori.includes(nome)) { showToast('Operatore già presente'); return; }
-  operatori.push(nome); save(); renderOperatoriList(); initLogin();
-  inp.value=''; showToast(`${nome} aggiunto!`);
+  try {
+    await fsAddOperatore(nome);
+    inp.value = ''; showToast(`${nome} aggiunto!`);
+  } catch(e) { showToast('Errore salvataggio'); }
 }
 
 function deleteOperatore(nome) {
   if (nome===ADMIN_NAME) { showToast("Non puoi rimuovere l'amministratore"); return; }
   if (operatori.length<=1) { showToast('Almeno un operatore richiesto'); return; }
-  operatori=operatori.filter(o=>o!==nome); save(); renderOperatoriList(); initLogin();
+  showModal('Rimuovi operatore', `Rimuovere ${nome} dalla lista operatori?`, 'Rimuovi', 'var(--red)',
+    async () => {
+      try { await fsDeleteOperatore(nome); showToast(`${nome} rimosso`); }
+      catch(e) { showToast('Errore rimozione'); }
+    });
 }
 
 function renderOperatoriList() {
-  const pins=JSON.parse(localStorage.getItem('cp_pins')||'{}');
-  document.getElementById('operatori-list').innerHTML=operatori.map(op=>{
+  const pins = JSON.parse(localStorage.getItem('cp_pins')||'{}');
+  document.getElementById('operatori-list').innerHTML = operatori.map(op=>{
     const hasPIN=!!pins[op]; const isAdm=op===ADMIN_NAME;
     return `<div style="display:flex;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--gray-100)">
       <div style="width:34px;height:34px;border-radius:50%;background:${isAdm?'var(--green-700)':'var(--gray-100)'};color:${isAdm?'var(--white)':'var(--gray-500)'};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${op.slice(0,2).toUpperCase()}</div>
@@ -1199,395 +1297,52 @@ function renderOperatoriList() {
   }).join('');
 }
 
-// ── GITHUB — AUTO-SAVE ───────────────────────────────────────────────────────
-// SHA cache so we don't need to fetch it every time we write
-const _shaCache = {};
-// Debounce timer — coalesces rapid saves into one request
-let _saveTimer   = null;
-// Guard against concurrent writes
-let _saving      = false;
-// Auto-refresh interval handle
-let _refreshTimer = null;
-
-// Status indicator
-function setSyncStatus(state) {
-  // state: 'idle' | 'saving' | 'ok' | 'error' | 'loading'
-  const dot   = document.getElementById('sync-dot');
-  const label = document.getElementById('sync-label');
-  if (!dot || !label) return;
-  const map = {
-    idle:    { color:'rgba(255,255,255,0.3)',  text:'—'           },
-    loading: { color:'#60A5FA',               text:'Aggiornamento...' },
-    saving:  { color:'#FCD34D',               text:'Salvataggio...'   },
-    ok:      { color:'#4ADE80',               text:'Salvato'          },
-    error:   { color:'#F87171',               text:'Errore salvataggio'},
-    offline: { color:'rgba(255,255,255,0.3)', text:'Solo locale'   },
-  };
-  const s = map[state] || map.idle;
-  dot.style.background   = s.color;
-  label.textContent      = s.text;
-}
-
-// Called after every data mutation — saves locally immediately,
-// then schedules a debounced GitHub write (800 ms delay)
-function save(skipRemote) {
-  localStorage.setItem('cp_ospiti',    JSON.stringify(ospiti));
-  localStorage.setItem('cp_ordini',    JSON.stringify(ordini));
-  localStorage.setItem('cp_operatori', JSON.stringify(operatori));
-  if (skipRemote || !ghToken || !ghRepo) {
-    setSyncStatus('offline');
-    return;
-  }
-  // Debounce: reset timer on each rapid call
-  clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(_pushToGitHub, 800);
-}
-
-// Actual write to GitHub (both files in parallel)
-async function _pushToGitHub() {
-  if (_saving) {
-    _saveTimer = setTimeout(_pushToGitHub, 600);
-    return;
-  }
-  _saving = true;
-  setSyncStatus('saving');
-  try {
-    // Always fetch fresh SHA — never use cache for writes to avoid conflicts
-    const [shaO, shaR] = await Promise.all([
-      _fetchSha(GH_FILE_OSPITI),
-      _fetchSha(GH_FILE_ORDINI),
-    ]);
-    const [resO, resR] = await Promise.all([
-      _ghWrite(GH_FILE_OSPITI, ospiti,  shaO),
-      _ghWrite(GH_FILE_ORDINI, ordini,  shaR),
-    ]);
-    if (resO.ok && resR.ok) {
-      const [dO, dR] = await Promise.all([resO.json(), resR.json()]);
-      // Update cache with new SHA from response
-      if (dO.content && dO.content.sha) _shaCache[GH_FILE_OSPITI] = dO.content.sha;
-      if (dR.content && dR.content.sha) _shaCache[GH_FILE_ORDINI] = dR.content.sha;
-      setSyncStatus('ok');
-      setTimeout(()=>setSyncStatus('idle'), 3000);
-    } else {
-      // If SHA conflict (409/422), clear cache and retry once
-      if (!resO.ok) {
-        const d = await resO.json();
-        if (d.message && d.message.includes('but expected')) {
-          delete _shaCache[GH_FILE_OSPITI];
-          delete _shaCache[GH_FILE_ORDINI];
-          _saving = false;
-          _saveTimer = setTimeout(_pushToGitHub, 300);
-          return;
-        }
-        _dbg(`Errore salvataggio: ${d.message}`, '#f38ba8');
-        throw new Error(d.message);
-      }
-      if (!resR.ok) {
-        const d = await resR.json();
-        if (d.message && d.message.includes('but expected')) {
-          delete _shaCache[GH_FILE_OSPITI];
-          delete _shaCache[GH_FILE_ORDINI];
-          _saving = false;
-          _saveTimer = setTimeout(_pushToGitHub, 300);
-          return;
-        }
-        _dbg(`Errore salvataggio: ${d.message}`, '#f38ba8');
-        throw new Error(d.message);
-      }
-    }
-  } catch(e) {
-    console.error('_pushToGitHub error:', e);
-    setSyncStatus('error');
-    setTimeout(()=>setSyncStatus('idle'), 5000);
-  }
-  _saving = false;
-}
-
-async function _fetchSha(file) {
-  if (!ghToken || !ghRepo) return null;
-  const [owner, repo] = ghRepo.split('/');
-  try {
-    const r = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${file}`,
-      { headers:{ 'Authorization':`token ${ghToken}`, 'Accept':'application/vnd.github.v3+json' } }
-    );
-    if (r.status === 404) return null; // file doesn't exist yet — first write
-    if (r.ok) { const d = await r.json(); _shaCache[file] = d.sha; return d.sha; }
-  } catch(e) {}
-  return null;
-}
-
-function _toBase64(str) {
-  // Robust Unicode-safe base64 encoding
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
-    (_, p1) => String.fromCharCode(parseInt(p1, 16))));
-}
-
-async function _ghWrite(file, data, sha) {
-  const [owner, repo] = ghRepo.split('/');
-  const json = JSON.stringify(data, null, 2);
-  const body = {
-    message: `Aggiornamento ${file}`,
-    content: _toBase64(json)
-  };
-  if (sha) body.sha = sha;
-  return fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${file}`,
-    {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${ghToken}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    }
-  );
-}
-
-function _fromBase64(str) {
-  // Robust Unicode-safe base64 decoding
-  return decodeURIComponent(atob(str.replace(/\n/g,'')).split('').map(
-    c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-  ).join(''));
-}
-
-// Read from GitHub — used on load and auto-refresh
-async function loadFromGitHub(showMsg) {
-  if (!ghToken || !ghRepo) return;
-  setSyncStatus('loading');
-  const [owner, repo] = ghRepo.split('/');
-  try {
-    const [rO, rR] = await Promise.all([
-      fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${GH_FILE_OSPITI}`, { headers:{ 'Authorization':`token ${ghToken}`, 'Accept':'application/vnd.github.v3+json' } }),
-      fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${GH_FILE_ORDINI}`, { headers:{ 'Authorization':`token ${ghToken}`, 'Accept':'application/vnd.github.v3+json' } }),
-    ]);
-    let changed = false;
-    if (rO.ok) {
-      const dO = await rO.json();
-      _shaCache[GH_FILE_OSPITI] = dO.sha;
-      const parsed = JSON.parse(_fromBase64(dO.content));
-      if (JSON.stringify(parsed) !== JSON.stringify(ospiti)) { ospiti = parsed; localStorage.setItem('cp_ospiti', JSON.stringify(ospiti)); changed = true; }
-    }
-    if (rR.ok) {
-      const dR = await rR.json();
-      _shaCache[GH_FILE_ORDINI] = dR.sha;
-      const parsed = JSON.parse(_fromBase64(dR.content));
-      if (JSON.stringify(parsed) !== JSON.stringify(ordini)) { ordini = parsed; localStorage.setItem('cp_ordini', JSON.stringify(ordini)); changed = true; }
-    }
-    if (changed) render();
-    setSyncStatus('ok');
-    setTimeout(()=>setSyncStatus('idle'), 2000);
-    if (showMsg) showToast(changed ? 'Dati aggiornati' : 'Dati già aggiornati');
-  } catch(e) {
-    console.error('loadFromGitHub error:', e);
-    setSyncStatus('offline');
-  }
-}
-
-// Manual force-refresh button (keep for setup page)
-async function syncGitHub() {
-  await loadFromGitHub(true);
-}
-
-// Start auto-refresh every 60 seconds
-function startAutoRefresh() {
-  if (_refreshTimer) clearInterval(_refreshTimer);
-  _refreshTimer = setInterval(()=>{ if (ghToken && ghRepo) loadFromGitHub(false); }, 60000);
-}
-
-function connectGitHub() {
-  const token = document.getElementById('gh-token').value.trim();
-  const repo  = document.getElementById('gh-repo').value.trim();
-  if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) { showToast('Token non valido'); return; }
-  if (!repo.includes('/')) { showToast('Formato: utente/repo'); return; }
-  ghToken = token; ghRepo = repo;
-  localStorage.setItem('cp_gh_token', token);
-  localStorage.setItem('cp_gh_repo',  repo);
-  document.getElementById('gh-status').textContent = 'GitHub connesso!';
-  // Reset SHA cache completely on every new connection
-  Object.keys(_shaCache).forEach(k => delete _shaCache[k]);
-  showToast('Connesso! Primo salvataggio in corso...');
-  // Save config for other devices, then immediately push all data
-  _saveConfig().then(() => {
-    clearTimeout(_saveTimer);
-    _pushToGitHub();
-  });
-  startAutoRefresh();
-}
-
-// Salva token + repo in config.json nel repo (una volta sola quando si configura)
-async function _saveConfig() {
-  try {
-    const sha = await _fetchSha('config.json');
-    await _ghWrite('config.json', { token: ghToken, repo: ghRepo }, sha);
-  } catch(e) {}
-}
-
-// Legge config.json dal repo senza autenticazione (file pubblico)
-// Chiamato al primo avvio se non c'è token in localStorage
-async function _loadConfig() {
-  // GitHub Pages URL: marcogenualdo99.github.io/Web-app-conti/
-  // Ricava owner dal hostname e repo dal primo segmento del pathname
-  const hostParts = location.hostname.split('.');
-  const owner = hostParts[0]; // marcogenualdo99
-  // pathname es. "/Web-app-conti/" → split → ["", "Web-app-conti", ""]
-  const pathParts = location.pathname.split('/').filter(p => p.length > 0);
-  const repo = pathParts[0] || ''; // "Web-app-conti"
-
-  if (!owner || !repo || owner === 'localhost' || owner === '127') return false;
-
-  try {
-    setSyncStatus('loading');
-    const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`;
-    const r = await fetch(url, { cache: 'no-store' });
-    if (!r.ok) return false;
-    const cfg = await r.json();
-    if (!cfg.token || !cfg.repo) return false;
-    ghToken = cfg.token;
-    ghRepo  = cfg.repo;
-    localStorage.setItem('cp_gh_token', ghToken);
-    localStorage.setItem('cp_gh_repo',  ghRepo);
-    const ti = document.getElementById('gh-token');
-    const ri = document.getElementById('gh-repo');
-    if (ti) ti.value = ghToken;
-    if (ri) ri.value = ghRepo;
-    document.getElementById('gh-status').textContent = 'GitHub connesso automaticamente';
-    return true;
-  } catch(e) { return false; }
-}
-
-// Chiamato quando si apre Impostazioni — mostra banner se non connesso
-function _aggiornaSetupUI() {
-  const banner = document.getElementById('no-config-banner');
-  if (!banner) return;
-  banner.style.display = (!ghToken || !ghRepo) ? 'block' : 'none';
-}
-
-// Carica config.json manualmente — per PWA iPhone dove _loadConfig fallisce
-// perché l'URL standalone non contiene il pathname del repo
-async function caricaConfigManuale() {
-  // Lista di repo noti da provare in ordine
-  const candidati = [
-    'marcogenualdo99/Web-app-conti',
-    // aggiungi altri qui se necessario
-  ];
-
-  setSyncStatus('loading');
-  showToast('Ricerca configurazione...');
-
-  for (const repoCandiato of candidati) {
-    const [owner, repo] = repoCandiato.split('/');
-    try {
-      const r = await fetch(
-        `https://raw.githubusercontent.com/${owner}/${repo}/main/config.json`,
-        { cache: 'no-store' }
-      );
-      if (!r.ok) continue;
-      const cfg = await r.json();
-      if (!cfg.token || !cfg.repo) continue;
-
-      ghToken = cfg.token;
-      ghRepo  = cfg.repo;
-      localStorage.setItem('cp_gh_token', ghToken);
-      localStorage.setItem('cp_gh_repo',  ghRepo);
-
-      const ti = document.getElementById('gh-token');
-      const ri = document.getElementById('gh-repo');
-      if (ti) ti.value = ghToken;
-      if (ri) ri.value = ghRepo;
-      document.getElementById('gh-status').textContent = 'GitHub connesso automaticamente!';
-      _aggiornaSetupUI();
-      Object.keys(_shaCache).forEach(k => delete _shaCache[k]);
-      await loadFromGitHub(false);
-      startAutoRefresh();
-      showToast('Configurazione caricata!');
-      return;
-    } catch(e) { continue; }
-  }
-
-  setSyncStatus('offline');
-  showToast('Configurazione non trovata — inserisci token manualmente');
-}
+// ── DEBUG / TEST ──────────────────────────────────────────────────────────────
 function _dbg(msg, color) {
   const panel = document.getElementById('debug-panel');
   if (!panel) return;
   panel.style.display = 'block';
   const ts = new Date().toLocaleTimeString('it-IT');
-  const col = color || '#cdd6f4';
-  panel.innerHTML += `<div style="color:${col}">[${ts}] ${msg}</div>`;
+  panel.innerHTML += `<div style="color:${color||'#cdd6f4'}">[${ts}] ${msg}</div>`;
   panel.scrollTop = panel.scrollHeight;
 }
 
 async function testConnessione() {
   const panel = document.getElementById('debug-panel');
   if (panel) { panel.style.display = 'block'; panel.innerHTML = ''; }
+  _dbg('=== TEST CONNESSIONE FIREBASE ===', '#89b4fa');
 
-  _dbg('=== TEST CONNESSIONE ===', '#89b4fa');
-  _dbg(`Token: ${ghToken ? ghToken.slice(0,8) + '...' : 'NON IMPOSTATO'}`, '#cba6f7');
-  _dbg(`Repo: ${ghRepo || 'NON IMPOSTATO'}`, '#cba6f7');
+  await waitForFirebase();
+  _dbg('SDK Firebase caricato', '#a6e3a1');
 
-  if (!ghToken || !ghRepo) {
-    _dbg('ERRORE: token o repo mancante', '#f38ba8');
-    return;
-  }
+  const { db, collection, getDocs, doc, setDoc, deleteDoc } = window._fb;
 
-  const [owner, repo] = ghRepo.split('/');
-  _dbg(`Owner: ${owner} | Repo: ${repo}`, '#cba6f7');
-
-  // Test 1: verifica repo esiste
-  _dbg('Test 1: verifica accesso al repo...', '#89dceb');
   try {
-    const r = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: { 'Authorization': `token ${ghToken}`, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    const d = await r.json();
-    if (r.ok) {
-      _dbg(`OK — repo trovato: ${d.full_name} (${d.private ? 'privato' : 'pubblico'})`, '#a6e3a1');
-    } else {
-      _dbg(`ERRORE ${r.status}: ${d.message}`, '#f38ba8');
-      if (r.status === 401) _dbg('Token non valido o scaduto', '#fab387');
-      if (r.status === 404) _dbg('Repo non trovato — controlla il nome (maiuscole/minuscole)', '#fab387');
-      return;
-    }
+    _dbg('Test lettura collection ospiti...', '#89dceb');
+    const snap = await getDocs(collection(db, 'ospiti'));
+    _dbg(`OK — trovati ${snap.size} ospiti nel database`, '#a6e3a1');
   } catch(e) {
-    _dbg(`ERRORE di rete: ${e.message}`, '#f38ba8');
+    _dbg(`ERRORE lettura: ${e.message}`, '#f38ba8');
     return;
   }
 
-  // Test 2: permessi write
-  _dbg('Test 2: verifica permessi scrittura...', '#89dceb');
   try {
-    const testData = { test: true, ts: Date.now() };
-    const sha = await _fetchSha('test-connessione.json');
-    const r = await _ghWrite('test-connessione.json', testData, sha);
-    const d = await r.json();
-    if (r.ok) {
-      _dbg('OK — scrittura riuscita!', '#a6e3a1');
-      // Pulisci il file di test
-      const shaDel = d.content && d.content.sha;
-      if (shaDel) {
-        await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/test-connessione.json`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `token ${ghToken}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'rimozione test', sha: shaDel })
-        });
-        _dbg('File di test rimosso', '#a6e3a1');
-      }
-    } else {
-      _dbg(`ERRORE ${r.status}: ${d.message}`, '#f38ba8');
-      if (r.status === 403) _dbg('Token senza permessi "repo" — rigeneralo con la spunta repo', '#fab387');
-      if (r.status === 422) _dbg('Errore validazione — SHA non corretto', '#fab387');
-      return;
-    }
+    _dbg('Test scrittura...', '#89dceb');
+    await setDoc(doc(db, '_test', 'connessione'), { ts: Date.now() });
+    _dbg('OK — scrittura riuscita', '#a6e3a1');
+    await deleteDoc(doc(db, '_test', 'connessione'));
+    _dbg('Pulizia completata', '#a6e3a1');
   } catch(e) {
     _dbg(`ERRORE scrittura: ${e.message}`, '#f38ba8');
+    _dbg('Controlla le regole di sicurezza Firestore (modalità test scaduta?)', '#fab387');
     return;
   }
 
-  _dbg('=== TUTTO OK — salvataggio attivo ===', '#a6e3a1');
-  showToast('Connessione GitHub funzionante!');
+  _dbg('=== TUTTO OK — database funzionante ===', '#a6e3a1');
+  showToast('Connessione Firebase funzionante!');
 }
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -1597,30 +1352,11 @@ function showToast(msg) {
 // ── START ─────────────────────────────────────────────────────────────────────
 async function start() {
   init();
-  if (!ghToken || !ghRepo) {
-    // Primo avvio su questo dispositivo: prova a leggere config.json dal repo
-    const loaded = await _loadConfig();
-    if (loaded) {
-      await loadFromGitHub(false);
-      startAutoRefresh();
-    } else {
-      setSyncStatus('offline');
-    }
-  } else {
-    // Token già in localStorage: usa direttamente
-    loadFromGitHub(false);
-    startAutoRefresh();
-  }
+  await ensureDefaultOperatori();
+  await startRealtimeSync();
 }
 
 start();
-
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && ghToken && ghRepo) loadFromGitHub(false);
-});
-window.addEventListener('pageshow', () => {
-  if (ghToken && ghRepo) loadFromGitHub(false);
-});
 </script>
 </body>
 </html>
